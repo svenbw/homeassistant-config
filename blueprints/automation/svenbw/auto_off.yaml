@@ -1,0 +1,176 @@
+blueprint:
+  source_url: https://github.com/svenbw/homeassistant-config/blob/main/blueprints/automation/svenbw/auto_off.yaml
+
+  name: Auto Turn Off Lights by Duration and Day
+
+  description: Automatically turn off selected lights after they've been on for a specified duration on chosen days of the week
+
+  domain: automation
+
+  input:
+    light_entities:
+      name: Lights
+      description: Select the lights to monitor and auto turn off
+      selector:
+        entity:
+          multiple: true
+          domain: light
+    duration:
+      name: Duration
+      description: How long the lights should be on before auto turn off
+      default: 60
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: minutes
+          mode: slider
+    weekdays:
+      name: Days of Week
+      description: Select which days this automation should be active
+      default:
+        - mon
+        - tue
+        - wed
+        - thu
+        - fri
+        - sat
+        - sun
+      selector:
+        select:
+          multiple: true
+          mode: dropdown
+          options:
+            - label: Monday
+              value: mon
+            - label: Tuesday
+              value: tue
+            - label: Wednesday
+              value: wed
+            - label: Thursday
+              value: thu
+            - label: Friday
+              value: fri
+            - label: Saturday
+              value: sat
+            - label: Sunday
+              value: sun
+    time_start:
+      name: Start Time
+      description: Time when the automation becomes active
+      default: "00:00:00"
+      selector:
+        time:
+    time_end:
+      name: End Time
+      description: Time when the automation stops being active
+      default: "23:59:59"
+      selector:
+        time:
+    enable_notification:
+      name: Enable Notification
+      description: Send a notification before turning off lights with option to cancel
+      default: false
+      selector:
+        boolean:
+    notification_device:
+      name: Notification Device
+      description: Device to send the notification to (only used if notifications enabled)
+      default: []
+      selector:
+        device:
+          integration: mobile_app
+          multiple: true
+    notification_delay:
+      name: Notification Delay (minutes before turn off)
+      description: How many minutes before turn off to send the notification
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 30
+          unit_of_measurement: minutes
+          mode: slider
+
+mode: parallel
+max: 20
+
+variables:
+  light_entities_var: !input light_entities
+  enable_notification: !input enable_notification
+  duration: !input duration
+  notification_delay: !input notification_delay
+
+trigger:
+  - platform: state
+    entity_id: !input light_entities
+    to: "on"
+    id: light_turned_on
+  - platform: event
+    event_type: mobile_app_notification_action
+    event_data:
+      action: KEEP_LIGHTS_ON
+    id: keep_lights_on
+
+condition: []
+
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: light_turned_on
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: template
+                    value_template: "{{ enable_notification }}"
+                sequence:
+                  - delay:
+                      minutes: "{{ [(duration | int) - (notification_delay | int), 0] | max }}"
+                  - condition: time
+                    weekday: !input weekdays
+                    after: !input time_start
+                    before: !input time_end
+                  - repeat:
+                      for_each: !input notification_device
+                      sequence:
+                        - service: notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}
+                          data:
+                            message: "Light {{ state_attr(trigger.entity_id, 'friendly_name') }} will turn off in {{ notification_delay }} minutes. Tap to keep it on."
+                            title: "Auto Turn Off Lights"
+                            data:
+                              actions:
+                                - action: KEEP_LIGHTS_ON
+                                  title: "Keep Lights On"
+                              tag: "light_auto_off_{{ trigger.entity_id }}"
+                  - wait_for_trigger:
+                      - platform: event
+                        event_type: mobile_app_notification_action
+                        event_data:
+                          action: KEEP_LIGHTS_ON
+                    timeout:
+                      minutes: !input notification_delay
+                    continue_on_timeout: true
+                  - condition: template
+                    value_template: "{{ wait.trigger == none }}"
+                  - condition: time
+                    weekday: !input weekdays
+                    after: !input time_start
+                    before: !input time_end
+                  - service: light.turn_off
+                    data:
+                      entity_id: "{{ trigger.entity_id }}"
+            default:
+              - delay:
+                  minutes: !input duration
+              - condition: time
+                weekday: !input weekdays
+                after: !input time_start
+                before: !input time_end
+              - service: light.turn_off
+                data:
+                  entity_id: "{{ trigger.entity_id }}"
+      - conditions:
+          - condition: trigger
+            id: keep_lights_on
+        sequence: []

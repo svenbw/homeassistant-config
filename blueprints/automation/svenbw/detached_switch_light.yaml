@@ -1,0 +1,63 @@
+blueprint:
+  source_url: https://github.com/svenbw/homeassistant-config/blob/main/blueprints/automation/svenbw/detached_switch_light.yaml
+
+  name: Detached Switch State Change Toggle with Auto-Off
+
+  description: Toggle a set of devices whenever detached switch changes state, with optional auto-off timeout
+
+  domain: automation
+
+  input:
+    source_switch:
+      name: Switch
+      description: The detached switch entity to monitor for state changes
+      selector:
+        entity:
+          domain: binary_sensor
+    target_devices:
+      name: Devices to Toggle
+      description: Select the devices you want to toggle when the state changes
+      selector:
+        target:
+          entity:
+            domain:
+              - switch
+              - light
+              - fan
+              - cover
+    auto_off_enabled:
+      name: Enable Auto-Off
+      description: Automatically turn off devices after the timeout period when they are turned on
+      default: false
+      selector:
+        boolean:
+    auto_off_duration:
+      name: Auto-Off Duration
+      description: Time to wait before automatically turning off the devices (only applies when devices are turned on)
+      default: 300
+      selector:
+        number:
+          min: 1
+          max: 86400
+          unit_of_measurement: seconds
+          mode: box
+
+trigger:
+  - platform: state
+    entity_id: !input source_switch
+
+condition: []
+
+action:
+  - service: homeassistant.toggle
+    target: !input target_devices
+
+  - if:
+      - condition: template
+        value_template: !input auto_off_enabled
+    then:
+      - delay: !input auto_off_duration
+      - service: homeassistant.turn_off
+        target: !input target_devices
+
+mode: restart
