@@ -1,0 +1,122 @@
+blueprint:
+  source_url: https://github.com/svenbw/homeassistant-config/blob/main/blueprints/automation/svenbw/detached_switch_light.yaml
+
+  name: Binary Sensor "Heads Up" Dashboard Notifications
+
+  description: Turns on an indicator light and creates a dashboard notification when a sensor is triggered.
+
+  domain: automation
+
+  input:
+    trigger_sensor:
+      name: Binary Sensor
+      selector:
+        entity:
+          domain: binary_sensor
+
+    indicator_light:
+      name: Indicator Light
+      selector:
+        target:
+          entity:
+            domain: light
+    indicator_color:
+      name: Indicator Color
+      default: [255, 0, 0]
+      selector:
+        color_rgb:
+
+    dashboard_notification:
+      name: Show On Dashboard
+      default: true
+      selector:
+        boolean:
+    notification_message:
+      name: Notification Message
+      default: "Sensor is triggered"
+      selector:
+        text:
+
+    start_time:
+      name: Active After
+      default: "00:00:00"
+      selector:
+        time:
+    end_time:
+      name: Active Before
+      default: "23:59:59"
+      selector:
+        time:
+
+    repeat_enabled:
+      name: Repeat Daily
+      default: false
+      selector:
+        boolean:
+    repeat_time:
+      name: Daily Repeat Time
+      default: "09:00:00"
+      selector:
+        time:
+
+mode: restart
+
+trigger:
+  - platform: state
+    entity_id: !input trigger_sensor
+    from: "off"
+    to: "on"
+    id: "sensor_activated"
+  - platform: state
+    entity_id: !input trigger_sensor
+    from: "on"
+    to: "off"
+    id: "sensor_cleared"
+  - platform: time
+    at: !input repeat_time
+    id: "daily_check"
+
+action:
+  - choose:
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: trigger
+                id: "sensor_activated"
+              - condition: and
+                conditions:
+                  - condition: trigger
+                    id: "daily_check"
+                  - condition: template
+                    value_template: "{{ repeat_enabled }}"
+                  - condition: state
+                    entity_id: !input trigger_sensor
+                    state: "on"
+          - condition: time
+            after: !input start_time
+            before: !input end_time
+        sequence:
+          - service: light.turn_on
+            target: !input indicator_light
+            data:
+              rgb_color: !input indicator_color
+
+          - if:
+              - condition: template
+                value_template: "{{ dashboard_notification }}"
+            then:
+              - action: persistent_notification.create
+                data:
+                  title: "Alert"
+                  message: !input notification_message
+                  notification_id: "heads_up_notification"
+
+      - conditions:
+          - condition: trigger
+            id: "sensor_cleared"
+        sequence:
+          - service: light.turn_off
+            target: !input indicator_light
+          - action: persistent_notification.dismiss
+            data:
+              notification_id: "heads_up_notification"
