@@ -1,5 +1,5 @@
 blueprint:
-  source_url: https://github.com/svenbw/homeassistant-config/blob/main/blueprints/automation/svenbw/detached_switch_light.yaml
+  source_url: https://github.com/svenbw/homeassistant-config/blob/main/blueprints/automation/svenbw/binary_heads_up.yaml
 
   name: Binary Sensor "Heads Up" Dashboard Notifications
 
