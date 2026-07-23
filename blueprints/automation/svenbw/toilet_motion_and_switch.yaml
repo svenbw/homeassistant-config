@@ -1,0 +1,128 @@
+blueprint:
+  source_url: https://github.com/svenbw/homeassistant-config/blob/main/blueprints/automation/svenbw/toilet_motion_and_switch.yaml
+
+  name: "Motion and switch based timed light controller"
+
+  description: >
+    Controls a light/switch using an occupancy sensor and physical switch.
+    Applies separate auto-off timeouts depending on how the light was activated.
+    Compatible device: Sonoff ZBMiniL2
+
+  domain: automation
+
+  input:
+    target_entity:
+      name: Light and switch device (e.g. ZBMiniL2)
+      description: "The entity controlled."
+      selector:
+        entity:
+          domain:
+            - light
+            - switch
+    motion_sensor:
+      name: Occupancy / motion sensor
+      description: "The sensor that detects presence in the room."
+      selector:
+        entity:
+          domain: binary_sensor
+          device_class:
+            - motion
+            - occupancy
+    manual_timeout:
+      name: Manual timeout (minutes)
+      description: "How long to keep the light on when turned on by the switch."
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 300
+          unit_of_measurement: "minutes"
+    motion_timeout:
+      name: Motion timeout (minutes)
+      description: "How long to keep the light on after motion clears."
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: "minutes"
+
+# 'restart' mode ensures that new triggers reset the timers
+mode: restart
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input motion_sensor
+    to: "on"
+    id: "motion_on"
+  - platform: state
+    entity_id: !input target_entity
+    to: "on"
+    id: "light_on"
+  - platform: state
+    entity_id: !input target_entity
+    to: "off"
+    id: "light_off"
+
+action:
+  # Small settling delay to avoid race conditions when triggers
+  # are firing simultaneously
+  - delay:
+      milliseconds: 100
+
+  - choose:
+      # 1. Light manually turned OFF -> Stop running timers immediately
+      - conditions:
+          - condition: trigger
+            id: "light_off"
+        sequence:
+          - stop: "Light turned off, stopping all timers."
+
+      # 2. Motion Detected -> Turn light on, wait for clear, then delay
+      - conditions:
+          - condition: trigger
+            id: "motion_on"
+        sequence:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: !input target_entity
+          - wait_for_trigger:
+              - platform: state
+                entity_id: !input motion_sensor
+                to: "off"
+          - delay:
+              minutes: !input motion_timeout
+          - service: homeassistant.turn_off
+            target:
+              entity_id: !input target_entity
+
+      # 3. Light turned ON -> Decide which timer to apply
+      - conditions:
+          - condition: trigger
+            id: "light_on"
+        sequence:
+          - choose:
+              # Condition 1: Motion is active -> Use the motion timeout
+              - conditions:
+                  - condition: state
+                    entity_id: !input motion_sensor
+                    state: "on"
+                sequence:
+                  - wait_for_trigger:
+                      - platform: state
+                        entity_id: !input motion_sensor
+                        to: "off"
+                  - delay:
+                      minutes: !input motion_timeout
+                  - service: homeassistant.turn_off
+                    target:
+                      entity_id: !input target_entity
+
+            # Condition 2: Motion is inactive -> Use the manual timeout
+            default:
+              - delay:
+                  minutes: !input manual_timeout
+              - service: homeassistant.turn_off
+                target:
+                  entity_id: !input target_entity

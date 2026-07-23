@@ -1,0 +1,40 @@
+blueprint:
+  source_url: https://github.com/svenbw/homeassistant-config/blob/main/blueprints/automation/svenbw/step_dimmer.yaml
+
+  name: Step-dimmer
+
+  description: Quickly cycles a relay off and on to change the intensity of a step-dimming bulb.
+
+  domain: script
+
+  input:
+    target_entity:
+      name: Relay entity
+      description: The switch entity connected to the bulb.
+      selector:
+        entity:
+          domain:
+            - light
+            - switch
+    delay_time:
+      name: Delay (milliseconds)
+      description: Time to wait between turning off and back on. Adjust if the light stays off or doesn't change brightness.
+      default: 500
+      selector:
+        number:
+          min: 100
+          max: 2000
+          step: 50
+          unit_of_measurement: ms
+          mode: slider
+
+mode: single
+sequence:
+  - action: homeassistant.turn_off
+    target:
+      entity_id: !input target_entity
+  - delay:
+      milliseconds: !input delay_time
+  - action: homeassistant.turn_on
+    target:
+      entity_id: !input target_entity
