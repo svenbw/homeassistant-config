@@ -1,0 +1,168 @@
+wled_huisvuil:
+  alias: "WLED: Huisvuil"
+  fields:
+    target_ip:
+      name: WLED IP Sensor
+      description: Select the IP sensor for the target WLED device
+      required: true
+      selector:
+        entity:
+          integration: wled
+          domain: sensor
+    brightness:
+      name: Brightness
+      description: WLED master brightness (0–255)
+      required: false
+      default: 196
+      selector:
+        number:
+          min: 0
+          max: 255
+          step: 1
+          mode: slider
+  sequence:
+    - action: rest_command.wled_apply_json
+      data:
+        ip: "{{ states(target_ip) }}"
+        payload:
+          "{\n  \"on\": true,\n  \"bri\": {{ brightness | default(196) | int }},\n  \"seg\": {\n    \"id\": 0,\n
+          \   \"start\": 0,\n    \"stop\": 8,\n    \"len\": 8,\n    \"grp\": 1,\n    \"spc\":
+          0,\n    \"of\": 0,\n    \"on\": true,\n    \"frz\": true,\n    \"bri\": 255,\n
+          \   \"bm\": 0,\n    \"rev\": false,\n    \"i\": [\n      0,\n      3,\n      \"000000\",\n
+          \     3,\n      5,\n      \"D1E0DF\",\n      5,\n      8,\n      \"000000\",\n
+          \     8,\n      16,\n      \"D1E0DF\",\n      \"000000\",\n      \"D1E0DF\",\n
+          \     18,\n      22,\n      \"000000\",\n      \"D1E0DF\",\n      23,\n      25,\n
+          \     \"000000\",\n      \"D1E0DF\",\n      26,\n      30,\n      \"8E9998\",\n
+          \     \"D1E0DF\",\n      31,\n      33,\n      \"000000\",\n      \"D1E0DF\",\n
+          \     34,\n      38,\n      \"8E9998\",\n      \"D1E0DF\",\n      39,\n      41,\n
+          \     \"000000\",\n      \"D1E0DF\",\n      42,\n      46,\n      \"8E9998\",\n
+          \     \"D1E0DF\",\n      47,\n      49,\n      \"000000\",\n      \"D1E0DF\",\n
+          \     50,\n      54,\n      \"8E9998\",\n      \"D1E0DF\",\n      55,\n      57,\n
+          \     \"000000\",\n      57,\n      63,\n      \"D1E0DF\",\n      \"000000\"\n
+          \   ]\n  }\n}\n"
+wled_papier:
+  alias: "WLED: Papier"
+  fields:
+    target_ip:
+      name: WLED IP Sensor
+      description: Select the IP sensor for the target WLED device
+      required: true
+      selector:
+        entity:
+          integration: wled
+          domain: sensor
+    brightness:
+      name: Brightness
+      description: WLED master brightness (0–255)
+      required: false
+      default: 196
+      selector:
+        number:
+          min: 0
+          max: 255
+          step: 1
+          mode: slider
+  sequence:
+    - action: rest_command.wled_apply_json
+      data:
+        ip: "{{ states(target_ip) }}"
+        payload:
+          "{\n  \"on\": true,\n  \"bri\": {{ brightness | default(196) | int }},\n  \"seg\": {\n    \"id\": 0,\n
+          \   \"start\": 0,\n    \"stop\": 8,\n    \"len\": 8,\n    \"grp\": 1,\n    \"spc\":
+          0,\n    \"of\": 0,\n    \"on\": true,\n    \"frz\": true,\n    \"bri\": 255,\n
+          \   \"bm\": 0,\n    \"rev\": false,\n    \"i\": [\n      0,\n      3,\n      \"000000\",\n
+          \     3,\n      5,\n      \"FFFC9E\",\n      5,\n      8,\n      \"000000\",\n
+          \     8,\n      16,\n      \"FFFC9E\",\n      \"000000\",\n      \"FFFC9E\",\n
+          \     18,\n      22,\n      \"000000\",\n      \"FFFC9E\",\n      23,\n      25,\n
+          \     \"000000\",\n      \"FFFC9E\",\n      26,\n      30,\n      \"FFF700\",\n
+          \     \"FFFC9E\",\n      31,\n      33,\n      \"000000\",\n      \"FFFC9E\",\n
+          \     34,\n      38,\n      \"FFF700\",\n      \"FFFC9E\",\n      39,\n      41,\n
+          \     \"000000\",\n      \"FFFC9E\",\n      42,\n      46,\n      \"FFF700\",\n
+          \     \"FFFC9E\",\n      47,\n      49,\n      \"000000\",\n      \"FFFC9E\",\n
+          \     50,\n      54,\n      \"FFF700\",\n      \"FFFC9E\",\n      55,\n      57,\n
+          \     \"000000\",\n      57,\n      63,\n      \"FFFC9E\",\n      \"000000\"\n
+          \   ]\n  }\n}\n"
+wled_pet:
+  alias: "WLED: PET"
+  fields:
+    target_ip:
+      name: WLED IP Sensor
+      description: Select the IP sensor for the target WLED device
+      required: true
+      selector:
+        entity:
+          integration: wled
+          domain: sensor
+    brightness:
+      name: Brightness
+      description: WLED master brightness (0–255)
+      required: false
+      default: 196
+      selector:
+        number:
+          min: 0
+          max: 255
+          step: 1
+          mode: slider
+  sequence:
+    - action: rest_command.wled_apply_json
+      data:
+        ip: "{{ states(target_ip) }}"
+        payload:
+          "{\n  \"on\": true,\n  \"bri\": {{ brightness | default(196) | int }},\n  \"seg\": {\n    \"id\": 0,\n
+          \   \"start\": 0,\n    \"stop\": 8,\n    \"len\": 8,\n    \"grp\": 1,\n    \"spc\":
+          0,\n    \"of\": 0,\n    \"on\": true,\n    \"frz\": true,\n    \"bri\": 255,\n
+          \   \"bm\": 0,\n    \"rev\": false,\n    \"i\": [\n      0,\n      3,\n      \"000000\",\n
+          \     3,\n      5,\n      \"91F6FF\",\n      5,\n      8,\n      \"000000\",\n
+          \     8,\n      16,\n      \"91F6FF\",\n      \"000000\",\n      \"91F6FF\",\n
+          \     18,\n      22,\n      \"000000\",\n      \"91F6FF\",\n      23,\n      25,\n
+          \     \"000000\",\n      \"91F6FF\",\n      26,\n      30,\n      \"00CCFF\",\n
+          \     \"91F6FF\",\n      31,\n      33,\n      \"000000\",\n      \"91F6FF\",\n
+          \     34,\n      38,\n      \"00CCFF\",\n      \"91F6FF\",\n      39,\n      41,\n
+          \     \"000000\",\n      \"91F6FF\",\n      42,\n      46,\n      \"00CCFF\",\n
+          \     \"91F6FF\",\n      47,\n      49,\n      \"000000\",\n      \"91F6FF\",\n
+          \     50,\n      54,\n      \"00CCFF\",\n      \"91F6FF\",\n      55,\n      57,\n
+          \     \"000000\",\n      57,\n      63,\n      \"91F6FF\",\n      \"000000\"\n
+          \   ]\n  }\n}\n"
+wled_gft:
+  alias: "WLED: GFT"
+  fields:
+    target_ip:
+      name: WLED IP Sensor
+      description: Select the IP sensor for the target WLED device
+      required: true
+      selector:
+        entity:
+          integration: wled
+          domain: sensor
+    brightness:
+      name: Brightness
+      description: WLED master brightness (0–255)
+      required: false
+      default: 196
+      selector:
+        number:
+          min: 0
+          max: 255
+          step: 1
+          mode: slider
+  sequence:
+    - action: rest_command.wled_apply_json
+      data:
+        ip: "{{ states(target_ip) }}"
+        payload:
+          "{\n  \"on\": true,\n  \"bri\": {{ brightness | default(196) | int }},\n  \"seg\": {\n    \"id\": 0,\n
+          \   \"start\": 0,\n    \"stop\": 8,\n    \"len\": 8,\n    \"grp\": 1,\n    \"spc\":
+          0,\n    \"of\": 0,\n    \"on\": true,\n    \"frz\": true,\n    \"bri\": 255,\n
+          \   \"bm\": 0,\n    \"rev\": false,\n    \"i\": [\n      0,\n      3,\n      \"000000\",\n
+          \     3,\n      5,\n      \"7DFF8A\",\n      5,\n      8,\n      \"000000\",\n
+          \     8,\n      16,\n      \"7DFF8A\",\n      \"000000\",\n      \"7DFF8A\",\n
+          \     18,\n      22,\n      \"000000\",\n      \"7DFF8A\",\n      23,\n      25,\n
+          \     \"000000\",\n      \"7DFF8A\",\n      26,\n      30,\n      \"00B33C\",\n
+          \     \"7DFF8A\",\n      31,\n      33,\n      \"000000\",\n      \"7DFF8A\",\n
+          \     34,\n      38,\n      \"00B33C\",\n      \"7DFF8A\",\n      39,\n      41,\n
+          \     \"000000\",\n      \"7DFF8A\",\n      42,\n      46,\n      \"00B33C\",\n
+          \     \"7DFF8A\",\n      47,\n      49,\n      \"000000\",\n      \"7DFF8A\",\n
+          \     50,\n      54,\n      \"00B33C\",\n      \"7DFF8A\",\n      55,\n      57,\n
+          \     \"000000\",\n      57,\n      63,\n      \"7DFF8A\",\n      \"000000\"\n
+          \   ]\n  }\n}\n"

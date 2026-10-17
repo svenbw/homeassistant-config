@@ -1,0 +1,368 @@
+blueprint:
+  source_url: https://github.com/svenbw/homeassistant-config/blob/main/blueprints/automation/svenbw/wled_waste_collection.yaml
+
+  name: WLED Waste Collection Reminder
+
+  description: >
+    Shows a waste type icon on a WLED matrix when a RecycleApp waste collection
+    is coming up. The icon appears a number of hours before the collection day
+    starts and disappears at a chosen time on the collection day. Afterwards the
+    WLED is put back the way it was. Optional off hours keep the WLED dark at
+    night; the icon comes back when they end.
+
+
+    Each icon is a script that takes a `target_ip` field (the WLED IP sensor)
+    and a `brightness` field (0-255), and draws the icon through
+    `rest_command.wled_apply_json`. When several
+    collections are due their icons take turns, in the order restafval, PMD,
+    paper, GFT and the other fractions.
+
+  domain: automation
+
+  input:
+    wled:
+      name: WLED
+      input:
+        wled_ip_sensor:
+          name: WLED IP sensor
+          description: The IP sensor of the WLED matrix
+          selector:
+            entity:
+              integration: wled
+              domain: sensor
+        wled_light:
+          name: WLED light
+          description: The main light entity of the same WLED, used to restore it afterwards
+          selector:
+            entity:
+              integration: wled
+              domain: light
+        brightness:
+          name: Brightness
+          description: Brightness of the WLED while an icon is shown
+          default: 77
+          selector:
+            number:
+              min: 1
+              max: 100
+              unit_of_measurement: "%"
+              mode: slider
+
+    icons:
+      name: Waste types and icons
+      description: Leave a waste type empty if it isn't collected at your address.
+      input:
+        rest_sensor:
+          name: Restafval sensor
+          default: ""
+          selector:
+            entity:
+              integration: recycle_app
+              domain: sensor
+        rest_script:
+          name: Restafval icon
+          default: ""
+          selector:
+            entity:
+              domain: script
+        pmd_sensor:
+          name: PMD sensor
+          default: ""
+          selector:
+            entity:
+              integration: recycle_app
+              domain: sensor
+        pmd_script:
+          name: PMD icon
+          default: ""
+          selector:
+            entity:
+              domain: script
+        paper_sensor:
+          name: Papier sensor
+          default: ""
+          selector:
+            entity:
+              integration: recycle_app
+              domain: sensor
+        paper_script:
+          name: Papier icon
+          default: ""
+          selector:
+            entity:
+              domain: script
+        gft_sensor:
+          name: GFT sensor
+          default: ""
+          selector:
+            entity:
+              integration: recycle_app
+              domain: sensor
+        gft_script:
+          name: GFT icon
+          default: ""
+          selector:
+            entity:
+              domain: script
+        other_sensors:
+          name: Other sensors
+          description: Any other waste types (glass, ...) that should get a reminder
+          default: []
+          selector:
+            entity:
+              multiple: true
+              integration: recycle_app
+              domain: sensor
+        other_script:
+          name: Other icon
+          default: ""
+          selector:
+            entity:
+              domain: script
+
+    timing:
+      name: Timing
+      input:
+        hours_before:
+          name: Show before collection
+          description: How many hours before the collection day (midnight) the icon appears
+          default: 12
+          selector:
+            number:
+              min: 1
+              max: 72
+              unit_of_measurement: hours
+              mode: slider
+        hide_time:
+          name: Hide at
+          description: Time on the collection day when the icon disappears
+          default: "09:00:00"
+          selector:
+            time:
+        cycle_seconds:
+          name: Cycle every
+          description: >
+            When several collections are due, cycle through their icons at this
+            interval. Set to 0 to only show the first one.
+          default: 10
+          selector:
+            number:
+              min: 0
+              max: 300
+              unit_of_measurement: seconds
+              mode: box
+        quiet_start:
+          name: Off hours start
+          description: >
+            The WLED is kept off from this time until the off hours end, even
+            while a reminder is due. Leave both empty (or set them to the same
+            time) to disable off hours.
+          default: ""
+          selector:
+            time:
+        quiet_end:
+          name: Off hours end
+          description: The icon is drawn again at this time if the reminder is still due
+          default: ""
+          selector:
+            time:
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  - platform: time_pattern
+    minutes: "/5"
+  - platform: homeassistant
+    event: start
+    id: start
+
+variables:
+  wled_ip_sensor: !input wled_ip_sensor
+  wled_light: !input wled_light
+  brightness: !input brightness
+  rest_sensor: !input rest_sensor
+  rest_script: !input rest_script
+  pmd_sensor: !input pmd_sensor
+  pmd_script: !input pmd_script
+  paper_sensor: !input paper_sensor
+  paper_script: !input paper_script
+  gft_sensor: !input gft_sensor
+  gft_script: !input gft_script
+  other_sensors: !input other_sensors
+  other_script: !input other_script
+  hours_before: !input hours_before
+  hide_time: !input hide_time
+  cycle_seconds: !input cycle_seconds
+  quiet_start: !input quiet_start
+  quiet_end: !input quiet_end
+  # quiet: whether we're in the off hours (they may span midnight)
+  # quiet_next: timestamp of the next off hours start or end
+  quiet: &quiet >
+    {% set s = today_at(quiet_start) if quiet_start else none %}
+    {% set e = today_at(quiet_end) if quiet_end else none %}
+    {{ s is not none and e is not none and s != e
+       and ((s <= now() < e) if s < e else (now() >= s or now() < e)) }}
+  quiet_next: &quiet_next >
+    {% set s = today_at(quiet_start) if quiet_start else none %}
+    {% set e = today_at(quiet_end) if quiet_end else none %}
+    {% set ns = namespace(next=none) %}
+    {% if s is not none and e is not none and s != e %}
+      {% for t in [s, e, s + timedelta(days=1), e + timedelta(days=1)] if t > now() %}
+        {% if ns.next is none or t < ns.next %}
+          {% set ns.next = t %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    {{ as_timestamp(ns.next) if ns.next is not none else 0 }}
+  # end: timestamp at which the icon must disappear (0 when nothing is due)
+  # scripts: the icon scripts of the due collections, in display order
+  # script: the first of them ('' when nothing is due)
+  status: &status >
+    {% set ns = namespace(end=0, due=[], scripts=[],
+         sensors=[['rest', rest_sensor], ['pmd', pmd_sensor], ['paper', paper_sensor],
+                  ['gft', gft_sensor]]) %}
+    {% for e in other_sensors %}
+      {% set ns.sensors = ns.sensors + [['other', e]] %}
+    {% endfor %}
+    {% for kind, e in ns.sensors if e and has_value(e) %}
+      {% set d = states(e) | as_datetime(none) %}
+      {% if d is none and is_number(state_attr(e, 'days')) %}
+        {% set d = today_at() + timedelta(days=state_attr(e, 'days') | int) %}
+      {% endif %}
+      {% if d is not none %}
+        {% set d = d | as_local %}
+        {% set start = d - timedelta(hours=hours_before | float) %}
+        {% set end = d + as_timedelta(hide_time) %}
+        {% if start <= now() < end %}
+          {% set ns.due = ns.due + [kind] %}
+          {% set ns.end = [ns.end, as_timestamp(end)] | max %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    {% for wanted, script in [
+         ['rest' in ns.due, rest_script],
+         ['pmd' in ns.due, pmd_script],
+         ['paper' in ns.due, paper_script],
+         ['gft' in ns.due, gft_script],
+         ['other' in ns.due, other_script]] if wanted and script and script not in ns.scripts %}
+      {% set ns.scripts = ns.scripts + [script] %}
+    {% endfor %}
+    {{ {'end': ns.end, 'scripts': ns.scripts, 'script': (ns.scripts + [''])[0]} }}
+  # The snapshot scene doubles as a marker: while it exists, the WLED shows an
+  # icon that still has to be cleaned up. It survives automation reloads (e.g.
+  # after editing the automation), which cancel a running reminder.
+  snapshot_id: "wled_waste_{{ this.entity_id | replace('automation.', '') }}"
+  snapshot: "scene.{{ snapshot_id }}"
+
+condition:
+  - condition: template
+    value_template: >
+      {{ (status.script != '' and status.end > now().timestamp())
+         or state_attr(snapshot, 'entity_id') is not none }}
+
+action:
+  - if:
+      - condition: template
+        value_template: "{{ status.script != '' and status.end > now().timestamp() }}"
+    then:
+      # Snapshot the WLED, unless a cancelled reminder already did: then the
+      # WLED shows the icon and the existing snapshot is the state to restore.
+      # After a HA restart there is no snapshot and the icon may already be
+      # showing, so don't take one; the WLED is turned off at the end instead.
+      - if:
+          - condition: template
+            value_template: "{{ state_attr(snapshot, 'entity_id') is none and trigger.id != 'start' }}"
+        then:
+          - service: scene.create
+            data:
+              scene_id: "{{ snapshot_id }}"
+              snapshot_entities:
+                - "{{ wled_light }}"
+
+      # Keep checking, so the icon follows when collections overlap. When
+      # several are due, cycle through their icons. During the off hours the
+      # WLED is turned off; `shown` becomes 'off' so the icon is drawn again
+      # once they end.
+      - variables:
+          shown: ""
+          turn: 0
+      - repeat:
+          sequence:
+            - variables:
+                cycling: "{{ cycle_seconds | int > 0 and status.scripts | count > 1 }}"
+                pick: >
+                  {{ status.scripts[turn % (status.scripts | count)]
+                     if cycling else status.script }}
+            - if:
+                - condition: template
+                  value_template: "{{ quiet }}"
+              then:
+                - if:
+                    - condition: template
+                      value_template: "{{ shown != 'off' }}"
+                  then:
+                    - service: light.turn_off
+                      target:
+                        entity_id: "{{ wled_light }}"
+                    - variables:
+                        shown: "off"
+              else:
+                - if:
+                    - condition: template
+                      value_template: "{{ pick not in ['', shown] }}"
+                  then:
+                    - service: script.turn_on
+                      target:
+                        entity_id: "{{ pick }}"
+                      data:
+                        variables:
+                          target_ip: "{{ wled_ip_sensor }}"
+                          brightness: "{{ (brightness | float * 2.55) | round | int }}"
+                    - variables:
+                        shown: "{{ pick }}"
+            - delay:
+                seconds: >
+                  {% set waits = [cycle_seconds | int if cycling and not quiet else 300,
+                                  status.end - now().timestamp()] %}
+                  {% if quiet_next > 0 %}
+                    {% set waits = waits + [quiet_next - now().timestamp()] %}
+                  {% endif %}
+                  {{ (waits | min | int) + 1 }}
+            - variables:
+                turn: "{{ turn + 1 }}"
+                status: *status
+                quiet: *quiet
+                quiet_next: *quiet_next
+          until: "{{ status.script == '' or status.end <= now().timestamp() }}"
+
+  # Clean up: the icon scripts freeze the segment, unfreeze it so effects run
+  # again, then put the WLED back the way it was
+  - service: rest_command.wled_apply_json
+    data:
+      ip: "{{ states(wled_ip_sensor) }}"
+      payload: '{"seg": {"id": 0, "frz": false}}'
+  - if:
+      - condition: template
+        value_template: "{{ state_attr(snapshot, 'entity_id') is not none }}"
+    then:
+      - service: scene.turn_on
+        target:
+          entity_id: "{{ snapshot }}"
+      - service: scene.delete
+        target:
+          entity_id: "{{ snapshot }}"
+      # Restoring may turn the WLED on; keep it off during the off hours
+      - variables:
+          quiet: *quiet
+      - if:
+          - condition: template
+            value_template: "{{ quiet }}"
+        then:
+          - service: light.turn_off
+            target:
+              entity_id: "{{ wled_light }}"
+    else:
+      - service: light.turn_off
+        target:
+          entity_id: "{{ wled_light }}"
